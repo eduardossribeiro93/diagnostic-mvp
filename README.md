@@ -3,8 +3,8 @@ title: Working Capital Optimizer — Inventory Cash Diagnostic
 emoji: 🚀
 colorFrom: red
 colorTo: red
-sdk: docker
-app_port: 8501
+sdk: streamlit
+app_file: app/Home.py
 tags:
 - streamlit
 pinned: false
