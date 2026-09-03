@@ -1,3 +1,16 @@
+---
+title: Working Capital Optimizer — Inventory Cash Diagnostic
+emoji: 🚀
+colorFrom: red
+colorTo: red
+sdk: docker
+app_port: 8501
+tags:
+- streamlit
+pinned: false
+short_description: MVP for Inventory Cash Diagnostic
+---
+
 # Working Capital Optimizer — Inventory Cash Diagnostic
 
 An operator-run diagnostic for PE operating partners auditing mid-market portfolio
