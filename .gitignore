@@ -1,0 +1,15 @@
+# Environment
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+
+# Client data - never committed. Real portfolio-company sales, stock and supplier
+# files live here locally only. The test suite uses synthetic fixtures instead.
+dataset/*
+!dataset/.gitkeep
+
+# Per-client runs and generated deliverables (contain real client figures).
+clients/*
+!clients/.gitkeep
