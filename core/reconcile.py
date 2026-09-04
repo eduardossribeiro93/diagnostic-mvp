@@ -13,6 +13,8 @@ import polars as pl
 
 from .config import DiagnosticConfig
 
+DAYS_PER_MONTH = 30.44
+
 
 @dataclass
 class Normalized:
@@ -73,6 +75,8 @@ def build_monthly(sales: pl.DataFrame, config: DiagnosticConfig, today: date | N
         "forecast_start": _add_months(last_training, 1) if last_training else None,
         "n_periods": monthly["period"].n_unique() if monthly.height else 0,
         "first_period": monthly["period"].min() if monthly.height else None,
+        # The date the diagnostic is run from - PO arrival is judged against it.
+        "as_of_date": today or date.today(),
     }
     return monthly, meta
 
@@ -216,6 +220,8 @@ def build_sku_master(
         .drop(["_no_stock_row", "_lead_time_defaulted"])
     )
 
+    master = _split_open_pos(master, purchase_orders, config, meta)
+
     if last_period is not None:
         master = master.with_columns(
             pl.when(pl.col("last_sale_period").is_null())
@@ -230,6 +236,70 @@ def build_sku_master(
         master = master.with_columns(pl.lit(None, dtype=pl.Int32).alias("months_since_last_sale"))
 
     return master
+
+
+def _split_open_pos(
+    master: pl.DataFrame,
+    purchase_orders: pl.DataFrame,
+    config: DiagnosticConfig,
+    meta: dict,
+) -> pl.DataFrame:
+    """Split open POs by arrival: inside each SKU's coverage window, or beyond it.
+
+    Only stock landing within (lead time + review period) can cover demand in that
+    window, so a batch arriving later must not cancel out a real shortfall. Multiple
+    batches per SKU are handled naturally - each row is judged on its own date.
+
+    Overdue POs (ETA already past) are treated as still inbound, since a past date
+    implies imminent arrival. They are counted so the risk of double-counting units
+    that were in fact already received stays visible in the audit.
+    """
+    if not purchase_orders.height:
+        meta["n_overdue_pos"] = 0
+        meta["skus_with_overdue_po"] = 0
+        meta["skus_with_po_beyond_window"] = 0
+        return master.with_columns(
+            pl.lit(0.0).alias("open_po_in"), pl.lit(0.0).alias("open_po_beyond")
+        )
+
+    as_of = meta.get("as_of_date") or date.today()
+    eta = pl.col("expected_delivery_date")
+
+    coverage = master.select(
+        "sku",
+        (
+            (pl.col("lead_time") * config.lead_time_to_months + config.review_period_months)
+            * DAYS_PER_MONTH
+        )
+        .round(0)
+        .alias("_cov_days"),
+    )
+
+    split = (
+        purchase_orders.join(coverage, on="sku", how="inner")
+        .with_columns(
+            (
+                eta.is_null()
+                | ((eta - pl.lit(as_of)).dt.total_days() <= pl.col("_cov_days"))
+            ).alias("_in_window"),
+            (eta < pl.lit(as_of)).alias("_overdue"),
+        )
+        .group_by("sku")
+        .agg(
+            pl.col("ordered_qty").filter(pl.col("_in_window")).sum().alias("open_po_in"),
+            pl.col("ordered_qty").filter(~pl.col("_in_window")).sum().alias("open_po_beyond"),
+            pl.col("_overdue").any().alias("_has_overdue"),
+        )
+    )
+
+    meta["n_overdue_pos"] = int(purchase_orders.filter(eta < pl.lit(as_of)).height)
+    meta["skus_with_overdue_po"] = int(split["_has_overdue"].fill_null(False).sum())
+    meta["skus_with_po_beyond_window"] = int((split["open_po_beyond"] > 0).sum())
+
+    return master.join(split.drop("_has_overdue"), on="sku", how="left").with_columns(
+        pl.col("open_po_in").fill_null(0.0),
+        pl.col("open_po_beyond").fill_null(0.0),
+    )
 
 
 def build_panel(monthly: pl.DataFrame, meta: dict) -> pl.DataFrame:

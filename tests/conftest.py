@@ -75,8 +75,24 @@ def dataset(tmp_path_factory) -> dict:
         "9999,50,2026-09-30",     # orphan: unknown SKU
     ]
 
+    # Arrival-timing cases on SKU 0002 (understocked, coverage window ~23 days from
+    # TODAY): one overdue batch, one landing inside the window, and a large one far
+    # outside it that must not be allowed to cancel the shortfall.
+    pos_timing = [
+        "SKU,Ordered Qty,Expected Delivery Date",
+        "0002,3,2026-08-20",    # overdue -> still counted as inbound
+        "0002,4,2026-09-10",    # inside the coverage window
+        "0002,900,2027-06-01",  # far beyond it -> committed spend, but covers nothing
+    ]
+
     paths = {}
-    for name, rows in [("Sales", sales), ("Stocks", inventory), ("Suppliers", suppliers), ("POs", pos)]:
+    for name, rows in [
+        ("Sales", sales),
+        ("Stocks", inventory),
+        ("Suppliers", suppliers),
+        ("POs", pos),
+        ("POs_timing", pos_timing),
+    ]:
         p = d / f"{name}.csv"
         p.write_text("\n".join(rows) + "\n", encoding="utf-8")
         paths[name.lower()] = p
@@ -100,6 +116,23 @@ def result(dataset):
     cfg = DiagnosticConfig(client_name="Fixture Co", min_history_months=4)
     return run_diagnostic(
         dataset["sales"], dataset["stocks"], dataset["suppliers"], None, cfg, today=TODAY
+    )
+
+
+@pytest.fixture(scope="session")
+def result_po_timing(dataset):
+    """A run whose PO file exercises multiple batches, overdue and beyond-window arrivals."""
+    from core.config import DiagnosticConfig
+    from core.pipeline import run_diagnostic
+
+    cfg = DiagnosticConfig(client_name="Fixture Co", min_history_months=4)
+    return run_diagnostic(
+        dataset["sales"],
+        dataset["stocks"],
+        dataset["suppliers"],
+        dataset["pos_timing"],
+        cfg,
+        today=TODAY,
     )
 
 

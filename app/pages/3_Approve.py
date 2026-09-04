@@ -76,7 +76,7 @@ if st.button("Generate deliverables", type="primary", disabled=not approved):
         pdf = report.write_pdf(result, out_dir / f"{safe}_Diagnostic.pdf")
         xlsx = report.write_excel(result, out_dir / f"{safe}_SKU_Actions.xlsx")
         acc_path = out_dir / f"forecast_accuracy_{stamp}.csv"
-        result.accuracy.write_csv(acc_path)
+        result.forecast_export().write_csv(acc_path)
         summary_path = out_dir / f"run_summary_{stamp}.json"
         import json
 

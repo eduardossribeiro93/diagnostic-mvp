@@ -26,6 +26,7 @@ class DiagnosticResult:
     quality_score: float
     accuracy: pl.DataFrame
     supplier_exposure: pl.DataFrame
+    forecast: pl.DataFrame = field(default_factory=pl.DataFrame)
     meta: dict = field(default_factory=dict)
     config: DiagnosticConfig | None = None
 
@@ -35,6 +36,27 @@ class DiagnosticResult:
 
     def top_supply_risks(self, n: int = 10) -> pl.DataFrame:
         return self.sku_frame.sort("shortfall_value", descending=True).head(n)
+
+    def forecast_export(self) -> pl.DataFrame:
+        """Accuracy metrics plus each horizon month's forecast quantity as its own column.
+
+        Export only - it lets the client read how much of each SKU we expect to sell in
+        any given month of the horizon, without adding anything to the console.
+        """
+        if not self.forecast.height:
+            return self.accuracy
+        wide = (
+            self.forecast.with_columns(
+                pl.col("period").dt.strftime("forecast_%Y-%m").alias("_m"),
+                pl.col("demand").round(2),
+            )
+            .pivot(on="_m", index="sku", values="demand", aggregate_function="first")
+        )
+        months = sorted(c for c in wide.columns if c != "sku")
+        return (
+            self.accuracy.join(wide, on="sku", how="left")
+            .select(*self.accuracy.columns, *months)
+        )
 
     def abc_summary(self) -> pl.DataFrame:
         return (
@@ -101,7 +123,14 @@ def run_diagnostic(
         if has_pos
         else 0
     )
-    checks, score = audit.run_audit(diagnosed, config, extra_counts={"orphan_po": orphans})
+    checks, score = audit.run_audit(
+        diagnosed,
+        config,
+        extra_counts={
+            "orphan_po": orphans,
+            "overdue_po": int(norm.meta.get("skus_with_overdue_po", 0)),
+        },
+    )
 
     result = DiagnosticResult(
         sku_frame=diagnosed,
@@ -111,6 +140,7 @@ def run_diagnostic(
         quality_score=score,
         accuracy=fc.accuracy,
         supplier_exposure=_supplier_exposure(diagnosed),
+        forecast=fc.forecast,
         meta={**norm.meta, "runtime_seconds": round(time.time() - started, 1)},
         config=config,
     )

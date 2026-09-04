@@ -5,7 +5,11 @@ The decomposition is deliberately built so the buckets never double-count a unit
     total position above target = max(H + P - T, 0)
         of which owned stock    = max(H - T, 0)              -> excess / liquidate
         of which inbound POs    = the remainder              -> avoidable purchases
-    still short after inbound   = max(T - (H + P), 0)        -> shortfall / buy
+    still short after inbound   = max(T - (H + P_in), 0)     -> shortfall / buy
+
+Avoidable counts every open PO, because a late batch is still cancellable committed
+spend. Shortfall counts only P_in - inbound arriving inside the coverage window -
+since stock landing after that window cannot cover demand within it.
 
 E&O is the dead-SKU slice of excess (a breakdown of it, never an addition to it).
 """
@@ -21,12 +25,14 @@ ACTION_THRESHOLD = 1e-6
 
 def diagnose(master: pl.DataFrame, config: DiagnosticConfig, has_pos: bool) -> pl.DataFrame:
     H, P, T = pl.col("on_hand"), pl.col("open_po"), pl.col("target")
+    # Only inbound landing inside the coverage window offsets near-term demand.
+    P_in = pl.col("open_po_in") if "open_po_in" in master.columns else P
     cost = pl.col("unit_cost_effective")
 
     df = master.with_columns(
         (H - T).clip(lower_bound=0.0).alias("excess_units"),
         ((H + P - T).clip(lower_bound=0.0) - (H - T).clip(lower_bound=0.0)).alias("avoidable_units"),
-        (T - (H + P)).clip(lower_bound=0.0).alias("shortfall_units"),
+        (T - (H + P_in)).clip(lower_bound=0.0).alias("shortfall_units"),
     ).with_columns(
         (pl.col("excess_units") * cost).alias("excess_value"),
         (pl.col("avoidable_units") * cost).alias("avoidable_value"),

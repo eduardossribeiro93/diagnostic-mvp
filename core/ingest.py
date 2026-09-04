@@ -151,10 +151,17 @@ def load_purchase_orders(path: str | Path, overrides: dict[str, str] | None = No
     raw = _read_all_text(path)
     m = resolve_columns(raw.columns, "purchase_orders", overrides)
     cols = [_sku(m["sku"]), _num(m["ordered_qty"]).alias("ordered_qty")]
+    # Parsed to a real date: arrival timing decides whether a batch can cover
+    # near-term demand. Unparseable or absent dates stay null and count as in-window.
     cols.append(
-        pl.col(m["expected_delivery_date"]).cast(pl.String).str.strip_chars().alias("expected_delivery_date")
+        pl.col(m["expected_delivery_date"])
+        .cast(pl.String)
+        .str.strip_chars()
+        .replace("", None)
+        .str.to_date(strict=False)
+        .alias("expected_delivery_date")
         if "expected_delivery_date" in m
-        else pl.lit(None, dtype=pl.String).alias("expected_delivery_date")
+        else pl.lit(None, dtype=pl.Date).alias("expected_delivery_date")
     )
     return raw.select(cols).drop_nulls(["sku"])
 
@@ -162,5 +169,5 @@ def load_purchase_orders(path: str | Path, overrides: dict[str, str] | None = No
 def empty_purchase_orders() -> pl.DataFrame:
     """Used when the client has no PO export - position collapses to on-hand."""
     return pl.DataFrame(
-        schema={"sku": pl.String, "ordered_qty": pl.Float64, "expected_delivery_date": pl.String}
+        schema={"sku": pl.String, "ordered_qty": pl.Float64, "expected_delivery_date": pl.Date}
     )

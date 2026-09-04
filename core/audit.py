@@ -21,6 +21,7 @@ CHECKS: dict[str, tuple[str, float, str]] = {
     "dead_stock": ("No sales within the dead-stock window", 5.0, "medium"),
     "negative_inventory": ("Negative stock on hand", 5.0, "low"),
     "orphan_po": ("Purchase order for an unknown SKU", 5.0, "low"),
+    "overdue_po": ("Purchase order past its delivery date - counted as inbound", 5.0, "medium"),
     "duplicate_sku": ("Duplicate SKU rows in a source file", 5.0, "low"),
 }
 
