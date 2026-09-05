@@ -268,3 +268,65 @@ def test_forecast_export_months_reconcile_to_the_horizon_total(result):
 
     assert all(row[m] >= 0 for m in months)
     assert sum(row[m] for m in months) == pytest.approx(row["demand_horizon"], rel=1e-3)
+
+
+# --- Homepage assumptions ----------------------------------------------------------
+
+
+def _home():
+    from streamlit.testing.v1 import AppTest
+
+    at = AppTest.from_file(str(APP / "Home.py"), default_timeout=90)
+    at.run()
+    assert not at.exception, at.exception
+    return at
+
+
+def test_client_name_is_not_an_assumption():
+    """It identifies the run and names the deliverables, so it belongs with the files."""
+    at = _home()
+    labels = [w.label for w in at.text_input]
+    assert "Client name" in labels
+    # Currency is fixed at the EUR default rather than asked for on every run.
+    assert not any("Currency" in l for l in labels)
+
+
+def test_review_period_is_a_dropdown_and_the_median_checkbox_is_gone():
+    at = _home()
+    assert any("Review period" in s.label for s in at.selectbox)
+    assert not any("Review period" in s.label for s in at.slider)
+    # The checkbox became a typed figure, which is more flexible.
+    assert not at.checkbox
+    assert any(n.label.startswith("Default lead time") for n in at.number_input)
+
+
+def test_default_lead_time_label_follows_the_unit_dropdown():
+    """A bare number is ambiguous - the label has to name the unit chosen above it."""
+    at = _home()
+    num = next(n for n in at.number_input if n.label.startswith("Default lead time"))
+    assert num.label.endswith("(months)")
+
+    unit = next(s for s in at.selectbox if "Lead-time unit" in s.label)
+    unit.select("days").run()
+
+    num = next(n for n in at.number_input if n.label.startswith("Default lead time"))
+    assert num.label.endswith("(days)")
+
+
+def test_a_typed_default_lead_time_is_actually_used(dataset):
+    """Deriving a median instead would silently discard what the operator typed."""
+    cfg = DiagnosticConfig(
+        client_name="Fixture Co",
+        min_history_months=4,
+        default_lead_time=3.0,
+        default_lead_time_from_median=False,
+    )
+    r = run_diagnostic(
+        dataset["sales"], dataset["stocks"], dataset["suppliers"], None, cfg,
+        today=date(2026, 9, 3),
+    )
+    assert r.meta["default_lead_time_used"] == 3.0
+    # SKU 0003 has no lead time in the fixture, so it must carry the typed default.
+    row = r.sku_frame.filter(pl.col("sku") == "0003").row(0, named=True)
+    assert row["lead_time_source"] == "default"
+    assert row["lead_time"] == 3.0

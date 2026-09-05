@@ -50,9 +50,6 @@ class DiagnosticConfig:
     dead_stock_months: int = 12  # no sales in N months -> E&O
     intermittent_zero_share: float = 0.5  # >= this share of zero months -> intermittent
 
-    # --- Valuation ---
-    carrying_cost_rate: float = 0.20  # annual, for "carrying cost freed"
-
     # --- Data handling ---
     missing_stock_as_zero: bool = True  # SKUs sold but absent from stock file -> on-hand 0
 

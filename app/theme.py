@@ -20,7 +20,7 @@ if str(ROOT) not in sys.path:
 
 INK = "#0D0D0F"
 PANEL = "#151518"
-BORDER = "#26262B"
+BORDER = "#202022"  # ~8% white over the page ground - matches theme.borderColor
 TEXT = "#F0F0F2"
 MUTED = "#96969E"
 ACCENT = "#C6F24E"
@@ -28,7 +28,10 @@ DANGER = "#F2785C"
 
 CSS = f"""
 <style>
-  .block-container {{ padding-top: 2.2rem; padding-bottom: 3rem; max-width: 1400px; }}
+  /* Streamlit's header is fixed and overlays the page, so the first line of content
+     has to clear it or it gets clipped. */
+  header[data-testid="stHeader"] {{ background: transparent; }}
+  .block-container {{ padding-top: 4.75rem; padding-bottom: 3rem; max-width: 1400px; }}
   #MainMenu, footer {{ visibility: hidden; }}
 
   .wc-eyebrow {{
@@ -52,9 +55,15 @@ CSS = f"""
   .wc-tile-note {{ font-size: .68rem; color: {MUTED}; margin-top: .3rem; }}
 
   .wc-section {{
-    font-size: .95rem; font-weight: 600; color: {TEXT};
-    border-bottom: 1px solid {BORDER}; padding-bottom: .4rem; margin: 1.6rem 0 .8rem;
+    display: flex; align-items: center; gap: .5rem;
+    font-size: 1rem; font-weight: 500; color: {TEXT}; margin: 2rem 0 .3rem;
   }}
+  .wc-section svg {{ width: 16px; height: 16px; flex: none; }}
+  .wc-section-desc {{
+    color: {MUTED}; font-size: .82rem; line-height: 1.5;
+    max-width: 78ch; margin: 0 0 .75rem;
+  }}
+
   .wc-pill {{
     display:inline-block; padding:.12rem .5rem; border-radius:999px;
     border:1px solid {BORDER}; color:{MUTED}; font-size:.68rem; margin-right:.3rem;
@@ -105,8 +114,32 @@ def tile(label: str, value: str, note: str = "", accent: bool = False) -> None:
     )
 
 
-def section(title: str) -> None:
-    st.markdown(f'<div class="wc-section">{title}</div>', unsafe_allow_html=True)
+_SVG = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+    'stroke-linecap="round" stroke-linejoin="round">{}</svg>'
+)
+ICONS = {
+    "files": _SVG.format('<path d="M14 3v5h5"/><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 '
+                         '2-2h9l5 5v11a2 2 0 0 1-2 2z"/>'),
+    "sliders": _SVG.format('<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3'
+                           'M1 14h6M9 8h6M17 16h6"/>'),
+    "play": _SVG.format('<circle cx="12" cy="12" r="9"/><path d="M10 8.5l6 3.5-6 3.5z"/>'),
+}
+
+
+def section(title: str, description: str = "", icon: str | None = None) -> None:
+    """Icon and title on one line, with an optional muted comment beneath."""
+    glyph = ICONS.get(icon, "") if icon else ""
+    st.markdown(f'<div class="wc-section">{glyph}<span>{title}</span></div>',
+                unsafe_allow_html=True)
+    if description:
+        st.markdown(f'<div class="wc-section-desc">{description}</div>',
+                    unsafe_allow_html=True)
+
+
+def card():
+    """A hairline-bordered container for a section's content. Use as `with theme.card():`."""
+    return st.container(border=True)
 
 
 def require_result():

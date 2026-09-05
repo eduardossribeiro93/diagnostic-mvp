@@ -21,13 +21,11 @@ def compute(df: pl.DataFrame, config: DiagnosticConfig) -> dict:
         # After acting: hold the target, never more than you already own.
         (pl.min_horizontal(pl.col("on_hand"), pl.col("target")) * cost).sum().alias("inv_target"),
         (pl.col("qty_12m") * cost).sum().alias("annual_cogs"),
-        pl.col("excess_value").sum().alias("excess_value"),
     ).row(0, named=True)
 
     inv_before = float(agg["inv_before"] or 0.0)
     inv_target = float(agg["inv_target"] or 0.0)
     cogs = float(agg["annual_cogs"] or 0.0)
-    excess = float(agg["excess_value"] or 0.0)
 
     def dio(value: float) -> float | None:
         return (value / cogs) * DAYS_PER_YEAR if cogs > 0 else None
@@ -44,6 +42,4 @@ def compute(df: pl.DataFrame, config: DiagnosticConfig) -> dict:
         "dio_target": dio(inv_target),
         "turns_before": turns(inv_before),
         "turns_target": turns(inv_target),
-        "carrying_cost_freed": excess * config.carrying_cost_rate,
-        "carrying_cost_rate": config.carrying_cost_rate,
     }

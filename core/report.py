@@ -198,8 +198,8 @@ def write_pdf(result, path: str | Path) -> Path:
                f"{fmt(mt['dio_before'],'d')} -> {fmt(mt['dio_target'],'d')}")
     _stat_tile(pdf, pdf.l_margin + 2 * (w + 3), y, w, "Inventory turns",
                f"{fmt(mt['turns_before'],'',2)} -> {fmt(mt['turns_target'],'',2)}")
-    _stat_tile(pdf, pdf.l_margin + 3 * (w + 3), y, w,
-               f"Carrying cost freed @{cfg.carrying_cost_rate:.0%}", _money(mt["carrying_cost_freed"], cur))
+    _stat_tile(pdf, pdf.l_margin + 3 * (w + 3), y, w, "Stock released",
+               _money(mt["inventory_value_released"], cur))
     pdf.set_y(y + 20)
 
     # --- Top opportunities / risks -----------------------------------------

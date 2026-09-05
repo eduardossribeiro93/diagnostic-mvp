@@ -4,6 +4,9 @@ primaryColor = "#C6F24E"
 backgroundColor = "#0D0D0F"
 secondaryBackgroundColor = "#151518"
 textColor = "#F0F0F2"
+# Barely-visible hairline on cards, tables and widgets - Streamlit's default is 20%
+# white, which reads as a hard outline against this dark ground.
+borderColor = "#202022"
 font = "sans serif"
 
 [server]

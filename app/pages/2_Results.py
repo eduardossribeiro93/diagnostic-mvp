@@ -59,8 +59,8 @@ with exec_tab:
         theme.tile("Inventory turns", f"{fmt(mt['turns_before'],'',2)} → {fmt(mt['turns_target'],'',2)}",
                    "before → target")
     with cols[3]:
-        theme.tile("Carrying cost freed", theme.money(mt["carrying_cost_freed"], cur),
-                   f"at {result.config.carrying_cost_rate:.0%}/yr")
+        theme.tile("Stock released", theme.money(mt["inventory_value_released"], cur),
+                   "held stock above target")
 
     if ro["eo_value"]:
         st.caption(
