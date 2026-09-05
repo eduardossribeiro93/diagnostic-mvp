@@ -4,8 +4,9 @@ The README explains *what* this is and how the numbers are built. This file reco
 decisions behind it, the traps already hit, and the conventions to follow — so a fresh
 session doesn't re-litigate settled choices or rediscover the same bugs.
 
-Full plan: `~/.claude/plans/hey-as-context-i-virtual-waterfall.md` (outside the repo, not
-in git — so it is not covered by pushes).
+Full plan: `docs/plan.md`. The working copy Claude Code edits lives at
+`~/.claude/plans/hey-as-context-i-virtual-waterfall.md` — if the plan changes, re-copy it so
+the tracked version doesn't drift.
 
 ## What this is, and what it deliberately is not
 
